@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'default'
+account = 'personal'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 #client = boto3.client('ecs')
@@ -36,7 +36,7 @@ cluster_fin = {
         'cur_cluster': "",
         'cur_env': "",
         'cur_service': "",
-        'cur_tasks': [],
+        'cur_tasks': list[str],
         'cur_task_definition': ""
 }
 
@@ -259,21 +259,17 @@ def prep():
 def update_option():
 
 
-        get_task_definition()
         print('Update Service Task Definition\n')
-        print(f'Current Task Definition: {style.UNDERLINE}{cluster_fin['cur_task_definition']}{style.RESET}')
-        print(f'Current TD Family: {cluster_td["family"]}')
-        print(f'Current TD revision: {cluster_td["revision"]}')
-
-
+        update_task_definition()
         
-def get_task_definition():
+def update_task_definition():
         response = client.list_task_definitions(
                 familyPrefix=cluster_td["family"],
                 status = "ACTIVE",
                 sort = 'DESC'
         )
 
+        print(f'Current Task Definition: {style.UNDERLINE}{cluster_td['family']}:{cluster_td['revision']}{style.RESET}')
         # print('Task definition: revision')
         # list_of_td = response['taskDefinitionArns']
         # for i in range(5):
@@ -284,7 +280,7 @@ def get_task_definition():
 def start():
         global restart
         while True:
-                print("ECS Actions\n1. Service Restart\n2. Service Update\n3. Image Update")
+                print("ECS Actions\n1. Service Restart\n2. Service Update TD")
                 action = input("What would you like to do? ")
                 if action == '1' or action == '2' or action == '3':
                         break
@@ -351,3 +347,32 @@ if __name__ == "__main__":
         # usage info
 
 # Create a git repo
+                
+
+
+
+# Refactoring
+                
+                
+# class Apps:
+# 	def __init__(self) -> None:
+# 		self.cluster
+# 		self.service
+# 		self.tasks
+# 	def prep
+# 		cluster = ""
+# 		env
+# 		list_clusters
+# 			self.cluster = cluster
+# 	def list_services
+# 	def list_tasks
+# 	def restart
+# 	def update_td
+
+# def main():
+	
+# 	input which env?
+# 	input which cluster?
+# 	input which service?
+# 	input what action?
+	

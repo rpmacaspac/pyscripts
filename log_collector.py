@@ -5,7 +5,7 @@ import datetime
 
 
 
-session = boto3.Session(profile_name='hkdl-apps-dev')
+session = boto3.Session(profile_name='personal')
 client = session.client('ecs')
 events = ""
 cur_event_id = ""
