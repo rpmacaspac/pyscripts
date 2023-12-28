@@ -36,7 +36,7 @@ cluster_fin = {
         'cur_cluster': "",
         'cur_env': "",
         'cur_service': "",
-        'cur_tasks': list[str],
+        'cur_tasks': [],
         'cur_task_definition': ""
 }
 
