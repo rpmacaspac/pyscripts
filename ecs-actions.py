@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'default'
+account = 'personal'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 #client = boto3.client('ecs')
@@ -102,7 +102,7 @@ def get_service(service):
         cluster_fin['cur_service'] = str(list_services[service-1])
 
 
-def describe_svc():
+def describe_service():
         response = client.describe_services(
         cluster = cluster_fin['cur_cluster'],
         services = [
@@ -143,6 +143,8 @@ def stop_task(task):
                 reason='Ecs service restart'
                 )
         print(f"{dt} Stopping {task}")
+
+def capture_log():
         log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
         log_collector.clear_cache()
 
@@ -151,8 +153,8 @@ def rolling_restart():
                 for i in range(int(cur_rolling_restart)):
                         stop_task(cluster_fin['cur_tasks'][0])
                         cluster_fin['cur_tasks'].remove(cluster_fin['cur_tasks'][0])
-                log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
-                log_collector.clear_cache()
+                capture_log()
+
 
 def validate_rolling():
        
@@ -203,6 +205,7 @@ def restart_option():
                                                 for i in range(len(cluster_fin['cur_tasks'])):
                                                         print("Function: stop_task")
                                                         stop_task(cluster_fin['cur_tasks'][i])
+                                                        capture_log()
                                                         return
                                 else:
                                         continue
@@ -251,7 +254,7 @@ def prep_env():
 def prep():
         try:
                 prep_env()
-                describe_svc()
+                describe_service()
                 list_task()
         except ValueError:
                 print("Wrong input. Exiting..")
@@ -348,6 +351,7 @@ if __name__ == "__main__":
                 ## which environment on hkdl-apps-dev
                 ## region not defined - fixed - added on credentials file(profile hkdl-apps-dev)
         # service name not consistent with console - eg. ma-scheduler
+        # capture - there is current/ongoing deployment - running count,desired count and status message - or get last deployment = completed
 
 ## Actions
 # Service Restart
@@ -364,7 +368,7 @@ if __name__ == "__main__":
         # create:
                 # dynamic counter using kwargs depending on number of task - not used
         # usage info
-
+        # option to continue and deploy after search and replace
 # Create a git repo
                 
 
