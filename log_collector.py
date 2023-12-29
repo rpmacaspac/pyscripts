@@ -5,7 +5,7 @@ import datetime
 
 
 
-session = boto3.Session(profile_name='personal')
+session = boto3.Session(profile_name='default')
 client = session.client('ecs')
 events = ""
 cur_event_id = ""
@@ -29,6 +29,12 @@ def clear_cache():
     prev_event_id = None
     status = None
 
+def clear_event_cache():
+    global events, desired_count, running_count
+    events = None
+    desired_count = None
+    running_count = None
+
 
 def collect_event(cur_cluster, cur_service):
     global events, desired_count, running_count
@@ -37,8 +43,8 @@ def collect_event(cur_cluster, cur_service):
         services=[
             cur_service
         ]
-    
     )
+
     events = response['services'][0]['events']
     desired_count = response['services'][0]['desiredCount']
     running_count = response['services'][0]['runningCount']
@@ -55,14 +61,14 @@ def get_current_event():
 def get_log(cur_cluster, cur_service):
     global status_msg, stable_event_id
     collect_event(cur_cluster, cur_service)
-    initial_event_id = get_current_event()[0]
-    initial_status = get_current_event()[1]
+    initial_event_id, initial_status = get_current_event()
+
 
     if initial_status == status_msg:
         stable_event_id = initial_event_id
 
     while True:
-        global counter, cur_event_id, prev_event_id
+        global cur_event_id, prev_event_id
         
 
         collect_event(cur_cluster, cur_service)
@@ -78,11 +84,14 @@ def get_log(cur_cluster, cur_service):
         if event_id != prev_event_id:
             print(event_current)
             prev_event_id = event_id
+            clear_event_cache()
             continue
 
+        #Ending with steady state logging
         if status == status_msg and event_id != stable_event_id and desired_count == running_count:
             print(event_current)
             break
+
 
 if __name__ == "__main__":
     session = boto3.Session(profile_name='personal')

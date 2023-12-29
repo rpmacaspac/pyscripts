@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'personal'
+account = 'default'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 #client = boto3.client('ecs')
@@ -143,6 +143,8 @@ def stop_task(task):
                 reason='Ecs service restart'
                 )
         print(f"{dt} Stopping {task}")
+        log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
+        log_collector.clear_cache()
 
 def rolling_restart():
         while cluster_fin['cur_tasks']:
@@ -201,8 +203,7 @@ def restart_option():
                                                 for i in range(len(cluster_fin['cur_tasks'])):
                                                         print("Function: stop_task")
                                                         stop_task(cluster_fin['cur_tasks'][i])
-                                                log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
-                                                break
+                                                        return
                                 else:
                                         continue
 
@@ -239,7 +240,7 @@ def prep_env():
         while True:
                 
                 for i in range(len(list_services)):
-                        print(f"{i+1}. {list_services[i].split("/")[1]}")
+                        print(f"{i+1}. {list_services[i].split("/")[-1]}")
                 service = input("Which service: ")
                 if int(service) <= len(list_services):
                         break
@@ -260,27 +261,41 @@ def update_option():
 
 
         print('Update Service Task Definition\n')
-        update_task_definition()
+        try:
+                update_task_definition()
+        except botocore.exceptions.ClientError:
+                print('Invalid task definition version!\nExiting..')
+                sys.exit()
         
 def update_task_definition():
-        response = client.list_task_definitions(
-                familyPrefix=cluster_td["family"],
-                status = "ACTIVE",
-                sort = 'DESC'
-        )
 
         print(f'Current Task Definition: {style.UNDERLINE}{cluster_td['family']}:{cluster_td['revision']}{style.RESET}')
+        task_definition = input("Task definition version: ")
         # print('Task definition: revision')
         # list_of_td = response['taskDefinitionArns']
         # for i in range(5):
         #         print(list_of_td[i].split("/")[1])
 
+        enter = input("Press ENTER to continue...")
+        if enter != '':
+                sys.exit()
+        print(f"\n{dt} Updating task definition to {cluster_td['family']}:{task_definition}")
+
+
+        client.update_service(
+                cluster = cluster_fin['cur_cluster'],
+                service = cluster_fin['cur_service'],
+                taskDefinition = f"{cluster_td['family']}:{task_definition}"
+        )
+
+        log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
+        log_collector.clear_cache()
 
 
 def start():
         global restart
         while True:
-                print("ECS Actions\n1. Service Restart\n2. Service Update TD")
+                print("ECS Actions\n1. Service Restart\n2. Deploy Task Definition")
                 action = input("What would you like to do? ")
                 if action == '1' or action == '2' or action == '3':
                         break
@@ -306,6 +321,8 @@ def start():
                 return
         if restart == "n":
                 update_option()
+                print(f"\nService Update...{style.GREEN}OK{style.RESET}")
+                return
 
 
 
@@ -315,6 +332,7 @@ if __name__ == "__main__":
                 start()
         except KeyboardInterrupt:
                 sys.exit()
+
         except botocore.exceptions.ClientError:
                 print('The security token included in the request is expired')
 
@@ -329,6 +347,7 @@ if __name__ == "__main__":
 ##      logding latest cluster - fixed
                 ## which environment on hkdl-apps-dev
                 ## region not defined - fixed - added on credentials file(profile hkdl-apps-dev)
+        # service name not consistent with console - eg. ma-scheduler
 
 ## Actions
 # Service Restart
