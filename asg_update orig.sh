@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-
-#Update
-    #Added creating backup in cloud
-    #Added optional for changing AmiID
-
 [[ "${DEBUG}" == 'true' ]] && set -o xtrace # trace if debug is requested
 PATH="/usr/local/bin:${PATH}"
 
@@ -37,42 +32,20 @@ function create_new_launch_config() {
     aws --profile "$PROFILE" --region "$REGION" autoscaling describe-launch-configurations --launch-configuration-name "$LAUNCHCONFIG"  > "$LAUNCHCONFIG"_bak.json
     exit_if_error $? "Unable to create backup of 'Launch configuration'"
 
-    # added for backup creation in cloud(for documentation purpose) although json backup was already created and saved locally
-    log "Creating backup LC"
-    cat "$LAUNCHCONFIG"_bak.json | jq 'del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId) | .LaunchConfigurations[].LaunchConfigurationName += "_bak20240103" | .[] | .[]' > "$LAUNCHCONFIG"_bak20240103.json
-    exit_if_error $? "Unable to create backup 'Launch Configuration'"
-
     log "Decoding UserData from launchconfig"
     cat "$LAUNCHCONFIG"_bak.json | jq --raw-output '.LaunchConfigurations[].UserData' | base64 --decode > "$LAUNCHCONFIG"_userdata.txt
 
-    ## added: 01/03/2023 for validating rundeck vm patching error
-    log "Creating Backup of current running Launch Configuration"
-    aws --profile "$PROFILE" --region "$REGION" autoscaling create-launch-configuration --cli-input-json file://"$LAUNCHCONFIG"_bak20240103.json --user-data file://"$LAUNCHCONFIG"_userdata.txt
-    exit_if_error $? "Unable to create backup for currently running Launch Configuration"
-
     log "Modify and update 'Launch configuration'"
-    if [[ -n "$AMIID" ]]; then
-        cat "$LAUNCHCONFIG"_bak.json | jq 'del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId)| .LaunchConfigurations[].InstanceType = "instance_type" | .LaunchConfigurations[].ImageId = "ami_id" | .[] | .[]' > "$LAUNCHCONFIG".json
-        exit_if_error $? "Unable to create new 'Launch configuration'"
-    else
-        cat "$LAUNCHCONFIG"_bak.json | jq 'del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId)| .LaunchConfigurations[].InstanceType = "instance_type" | .[] | .[]' > "$LAUNCHCONFIG".json
-        exit_if_error $? "Unable to create new 'Launch configuration'"
-    fi
-    
+    cat "$LAUNCHCONFIG"_bak.json | jq 'del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId)| .LaunchConfigurations[].InstanceType = "instance_type" | .[] | .[]' > "$LAUNCHCONFIG".json
+    exit_if_error $? "Unable to create new 'Launch configuration'"
+
     log "Updating instance type"
-    if [[ -n "$AMIID" ]]; then
-        sed -i -e "s/ami_id/$AMIID/g" "$LAUNCHCONFIG".json && sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".json
-        exit_if_error $? "Unable to edit volume size in 'Launch configuration'"
-    else
-        sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".json
-        exit_if_error $? "Unable to edit volume size in 'Launch configuration'"
-    fi
+    sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".json
+    exit_if_error $? "Unable to edit volume size in 'Launch configuration'"
 
     log "Naming 'Launch configuration' to name inside the file"
     cat "$LAUNCHCONFIG".json | jq '(.LaunchConfigurationName += "_new")' > "$LAUNCHCONFIG"_new.json
     exit_if_error $? "Unable to name 'Launch configuration' file accurately"
-
-
 
     log "Creating duplicate of launch config and attaching to ASG"
     aws --profile "$PROFILE" --region "$REGION" autoscaling create-launch-configuration --cli-input-json file://"$LAUNCHCONFIG"_new.json --user-data file://"$LAUNCHCONFIG"_userdata.txt
@@ -120,22 +93,9 @@ function validate_parameters() {
         log "Autoscaling Group Name: $ASGGROUP"
         log "Launch Configuration Name: $LAUNCHCONFIG"
         log "New Instance Type: $INSTANCETYPE"
-    elif [[ "$#" == 6 ]]; then
-        PROFILE=$1
-        REGION=$2
-        ASGGROUP=$3
-        LAUNCHCONFIG=$4
-        INSTANCETYPE=$5
-        AMIID=$6
-        log "Profile: $PROFILE"
-        log "Region: $REGION"
-        log "Autoscaling Group Name: $ASGGROUP"
-        log "Launch Configuration Name: $LAUNCHCONFIG"
-        log "New Instance Type: $INSTANCETYPE"
-        log "New AMI ID: $AMIID"
     else
         echo "All parameters not provided, please use command as below"
-        echo "$0  AwsProfile Region AutoscalingGroup LaunchConfigurationName InstanceType AmiID(Optional)"
+        echo "$0  AwsProfile Region AutoscalingGroup LaunchConfigurationName InstanceType"
         exit 1
     fi
 }

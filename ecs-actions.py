@@ -324,7 +324,7 @@ def start():
                 return
         if restart == "n":
                 update_option()
-                print(f"\nService Update...{style.GREEN}OK{style.RESET}")
+                print(f"\nDeployment...{style.GREEN}COMPLETED{style.RESET}")
                 return
 
 
@@ -359,22 +359,25 @@ if __name__ == "__main__":
                 # for manual stop start -> capture desired task and auto scaling task
         # add input argument for user
 
-# Update TD
+# Update TD - done
 # Update Image
         # Update image version and change it
         # Capture the new TD
-# Feature
+# FEATURES
+        # search and replace image tags -deadline TBD
+                # to add cpu and mem update
         # add: reduce no. of task
         # create:
                 # dynamic counter using kwargs depending on number of task - not used
         # usage info
         # option to continue and deploy after search and replace
-# Create a git repo
+# Create a git repo - done on rpmacaspac
                 
 
 
 
 # Refactoring
+                        # no time for this
                 
                 
 # class Apps:
