@@ -5,6 +5,12 @@
     #Added creating backup in cloud
     #Added optional for changing AmiID
 
+# GLOBAL VARIABLE
+export TODATE=""
+TODATE="$(date +%Y%m%d)"
+export BACKUP_NAME="_bak$TODATE"
+
+
 [[ "${DEBUG}" == 'true' ]] && set -o xtrace # trace if debug is requested
 PATH="/usr/local/bin:${PATH}"
 
@@ -33,13 +39,13 @@ function create_new_launch_config() {
     aws --profile "$PROFILE" --region "$REGION" autoscaling suspend-processes --auto-scaling-group-name "$ASGGROUP" --scaling-processes "Launch" "Terminate"
     exit_if_error $? "Unable to suspend ASG"
 
-    log "Creating backup"
+    log "Creating backup JSON"
     aws --profile "$PROFILE" --region "$REGION" autoscaling describe-launch-configurations --launch-configuration-name "$LAUNCHCONFIG"  > "$LAUNCHCONFIG"_bak.json
     exit_if_error $? "Unable to create backup of 'Launch configuration'"
 
     # added for backup creation in cloud(for documentation purpose) although json backup was already created and saved locally
-    log "Creating backup LC"
-    cat "$LAUNCHCONFIG"_bak.json | jq 'del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId) | .LaunchConfigurations[].LaunchConfigurationName += "_bak20240103" | .[] | .[]' > "$LAUNCHCONFIG"_bak20240103.json
+    log "Creating backup Launch Configuration"
+    cat "$LAUNCHCONFIG"_bak.json | jq "del(.LaunchConfigurations[].UserData) | del(.LaunchConfigurations[].CreatedTime) | del(.LaunchConfigurations[].LaunchConfigurationARN) | del(.LaunchConfigurations[].KernelId) | del(.LaunchConfigurations[].RamdiskId) | .LaunchConfigurations[].LaunchConfigurationName += "$BACKUP_NAME" | .[] | .[]" > "$LAUNCHCONFIG$BACKUP_NAME".json
     exit_if_error $? "Unable to create backup 'Launch Configuration'"
 
     log "Decoding UserData from launchconfig"
@@ -47,7 +53,8 @@ function create_new_launch_config() {
 
     ## added: 01/03/2023 for validating rundeck vm patching error
     log "Creating Backup of current running Launch Configuration"
-    aws --profile "$PROFILE" --region "$REGION" autoscaling create-launch-configuration --cli-input-json file://"$LAUNCHCONFIG"_bak20240103.json --user-data file://"$LAUNCHCONFIG"_userdata.txt
+    aws --profile "$PROFILE" --region "$REGION" autoscaling create-launch-configuration --cli-input-json file://"$LAUNCHCONFIG$BACKUP_NAME".json --user-data file://"$LAUNCHCONFIG"_userdata.txt
+    log "Created Backup 'Launch Configuration': $(cat "$LAUNCHCONFIG$BACKUP_NAME".json | jq '(.LaunchConfigurationName)')"
     exit_if_error $? "Unable to create backup for currently running Launch Configuration"
 
     log "Modify and update 'Launch configuration'"
@@ -64,15 +71,13 @@ function create_new_launch_config() {
         sed -i -e "s/ami_id/$AMIID/g" "$LAUNCHCONFIG".json && sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".json
         exit_if_error $? "Unable to edit volume size in 'Launch configuration'"
     else
-        sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".json
+        sed -i -e "s/instance_type/$INSTANCETYPE/g" "$LAUNCHCONFIG".jsonma
         exit_if_error $? "Unable to edit volume size in 'Launch configuration'"
     fi
 
     log "Naming 'Launch configuration' to name inside the file"
     cat "$LAUNCHCONFIG".json | jq '(.LaunchConfigurationName += "_new")' > "$LAUNCHCONFIG"_new.json
     exit_if_error $? "Unable to name 'Launch configuration' file accurately"
-
-
 
     log "Creating duplicate of launch config and attaching to ASG"
     aws --profile "$PROFILE" --region "$REGION" autoscaling create-launch-configuration --cli-input-json file://"$LAUNCHCONFIG"_new.json --user-data file://"$LAUNCHCONFIG"_userdata.txt
