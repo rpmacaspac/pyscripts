@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'personal'
+account = 'default'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 #client = boto3.client('ecs')
@@ -41,6 +41,7 @@ cluster_fin = {
 }
 
 cluster_td = {
+        'arn': "",
         'family': "",
         'revision': ""
 }
@@ -113,6 +114,7 @@ def describe_service():
         cluster_fin['cur_desired_count'] = response["services"][0]["desiredCount"]
         cluster_td['family'] = response["services"][0]["taskDefinition"].split("/")[1].split(":")[0]
         cluster_td['revision'] = response["services"][0]["taskDefinition"].split("/")[1].split(":")[1]
+        cluster_td['arn'] = response["services"][0]["taskDefinition"]
 
         current = (f"\n#######################################\n"
         f"ServiceName: {style.BOLD}{response["services"][0]["serviceName"]}{style.RESET}\n"
@@ -251,22 +253,13 @@ def prep_env():
                 
         get_service(int(service))
 
-def prep():
-        try:
-                prep_env()
-                describe_service()
-                list_task()
-        except ValueError:
-                print("Wrong input. Exiting..")
-                sys.exit()
-
 def update_option():
 
 
         print('Update Service Task Definition\n')
         try:
                 update_task_definition()
-        except botocore.exceptions.ClientError:
+        except botocore.exceptions.ClientError: # bug: except an error(didn't catch because of this except block) but still continue to update td
                 print('Invalid task definition version!\nExiting..')
                 sys.exit()
         
@@ -294,6 +287,14 @@ def update_task_definition():
         log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
         log_collector.clear_cache()
 
+def prep():
+        try:
+                prep_env()
+                describe_service()
+                list_task()
+        except ValueError:
+                print("Wrong input. Exiting..")
+                sys.exit()
 
 def start():
         global restart
@@ -342,7 +343,7 @@ if __name__ == "__main__":
 #### 
 # Rolling restart working - passed test with correct input only
 # Update TD - TBD
-# Input Validation - In-Progress
+# Input Validation - Done
                         # Restart the service?(y/n):
                                 # onwards
 # Catching ctrl+C - TBD
@@ -350,7 +351,7 @@ if __name__ == "__main__":
 ##      logding latest cluster - fixed
                 ## which environment on hkdl-apps-dev
                 ## region not defined - fixed - added on credentials file(profile hkdl-apps-dev)
-        # service name not consistent with console - eg. ma-scheduler
+        # service name not consistent with console - eg. ma-scheduler - fixed
         # capture - there is current/ongoing deployment - running count,desired count and status message - or get last deployment = completed
 
 ## Actions
@@ -371,6 +372,8 @@ if __name__ == "__main__":
                 # dynamic counter using kwargs depending on number of task - not used
         # usage info
         # option to continue and deploy after search and replace
+        # capture - there is current/ongoing deployment - running count,desired count and status message - or get last deployment = completed
+
 # Create a git repo - done on rpmacaspac
                 
 
