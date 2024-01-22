@@ -9,22 +9,16 @@
 
 import boto3
 import copy
-import sys
+import sys,re
+
+
 
 def describe_task_definition(ecs_client, task_definition_arn):
     response = ecs_client.describe_task_definition(taskDefinition=task_definition_arn)
     return response['taskDefinition']
 
-# def update_image_tag(task_definition, new_image_tag, old_image_tag):
-#     container_definition = task_definition['containerDefinitions'][0]
-#     image_ui = container_definition['image']
 
-#     # Update existing image tag in container definition
-#     new_image_uri = image_ui.rsplit(':', 1)[0] + f':{new_image_tag}'
-#     container_definition['image'] = new_image_uri
-
-
-# only usable for manual input 
+# only usable for *manual input* 
 def old_image_tag_exists(task_definition, old_image_tag):
     for container_definition in task_definition['containerDefinitions']:
         if 'image' in container_definition and old_image_tag in container_definition['image']:
@@ -47,46 +41,56 @@ def update_strings(obj, old_image_tag, new_image_tag):
 
 
 def register_new_task_definition(ecs_client, task_definition):
-
-
     response = ecs_client.register_task_definition(
         family = task_definition['family'],
         containerDefinitions=task_definition['containerDefinitions'],
         volumes = task_definition.get('volumes'),
-        # cpu = task_definition.get('cpu'),
-        # memory = task_definition.get('memory')
+        cpu = task_definition.get('cpu'),
+        memory = task_definition.get('memory')
     )
     new_task_definition_arn = response['taskDefinition']['taskDefinitionArn']
-
     return new_task_definition_arn
 
+
+def extract_repository_name(task_definition_arn):
+    arn_pattern = r'arn:aws:ecs:[^:]+:[^:]+:task-definition/([^:]+):'
+
+    match = re.match(arn_pattern, task_definition_arn)
+
+    if match:
+        repository_name = match.group(1)
+        return repository_name
+    else:
+        print(f"Error: Unable to extract repository name from task definition ARN '{task_definition_arn}'.")
+        return None
+
 def validate_image_tag_format(old_image_tag, new_image_tag):
-    
+    global existing
     # getting format of old and new
     old_tag_parts = old_image_tag.split('.')
     new_tag_parts = new_image_tag.split('.')
 
     if len(old_tag_parts) != len(new_tag_parts):
         print(f"Error: New image tag '{new_image_tag}' does not adhere to the old image tag '{old_image_tag}'.")
-    
-    # add: must be existing in ECR
-
+        sys.exit(1)
 
 if __name__ == "__main__":
     account = 'default'
     session = boto3.Session(profile_name=account)
     client = session.client('ecs')
+    ecr_client = boto3.client('ecr')
     current_td = "arn:aws:ecs:ap-northeast-1:876496569223:task-definition/ma-scheduler:421" # added to ecs-action script as current_td['arn']
     new_image_tag = "2.0.0.20240102160420" ## must be user input
     old_image_tag = "2.0.0.20231227094445" # currently existing in ecs-action script as revision
 
     # Describe existing task definition
     task_definition = describe_task_definition(client, current_td)
+    task_definition_arn = task_definition['taskDefinitionArn']
     
-    # Update Image tag in the task definition
-    #update_image_tag(task_definition, new_image_tag, old_image_tag)
+    # Validate image tag if existing in container registry
+    validate_image_tag_format(old_image_tag,new_image_tag,task_definition_arn,)
     
-    # Check if old image tag exists in the task definition
+    # Check if old image tag exists in the task definition - Manual Input
     if not old_image_tag_exists(task_definition, old_image_tag):
         print(f"Error: Old image tag '{old_image_tag}' does not exist in the task definition.")
         sys.exit(1)
@@ -97,6 +101,8 @@ if __name__ == "__main__":
     # Register a new task definition with the updated image tag
     new_task_definition_arn = register_new_task_definition(client, updated_task_definition)
 
-
-
     print(f"New task definition registered: {new_task_definition_arn}")
+
+
+    # To test:
+        # image existence on ECR

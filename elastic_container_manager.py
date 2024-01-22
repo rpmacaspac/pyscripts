@@ -5,7 +5,7 @@ import time, datetime
 import sys
 import json, pprint
 import os
-import log_collector
+import log_collector, update_td
 
 class style():
   RED = '\033[31m'
@@ -20,9 +20,10 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'default'
+account = 'personal'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
+ecr_client = session.client('ecr')
 #client = boto3.client('ecs')
 dt = datetime.datetime.today()
 seconds_now = dt.timestamp
@@ -30,6 +31,7 @@ filtered_cluster = []
 list_services = []
 cur_rolling_restart = ""
 restart = ""
+
 
 
 cluster_fin = {
@@ -43,7 +45,9 @@ cluster_fin = {
 cluster_td = {
         'arn': "",
         'family': "",
-        'revision': ""
+        'revision': "",
+        'image_tag': "",
+        'task_definition' : ""
 }
 
 
@@ -103,23 +107,32 @@ def get_service(service):
         cluster_fin['cur_service'] = str(list_services[service-1])
 
 
-def describe_service():
+def describe_service(cluster_td):
         response = client.describe_services(
         cluster = cluster_fin['cur_cluster'],
         services = [
                 cluster_fin['cur_service']
                 ]
         )
+
+
+
         cluster_fin['cur_running_count'] = response["services"][0]["runningCount"]
         cluster_fin['cur_desired_count'] = response["services"][0]["desiredCount"]
         cluster_td['family'] = response["services"][0]["taskDefinition"].split("/")[1].split(":")[0]
         cluster_td['revision'] = response["services"][0]["taskDefinition"].split("/")[1].split(":")[1]
         cluster_td['arn'] = response["services"][0]["taskDefinition"]
 
+        cluster_td['task_definition'] = describe_task_definition(client, cluster_td['arn'])
+        task_definition = cluster_td['task_definition']
+        container_definition = task_definition['containerDefinitions']
+        cluster_td['image_tag'] = container_definition[0]['image'].split(':')[1]
+
         current = (f"\n#######################################\n"
         f"ServiceName: {style.BOLD}{response["services"][0]["serviceName"]}{style.RESET}\n"
         f"Status: {style.GREEN}{response["services"][0]["status"]}{style.RESET}\n"
         f"TaskDefinition: {style.UNDERLINE}{response["services"][0]["taskDefinition"].split("/")[1]}{style.RESET}\n"
+        f"ImageTag: {cluster_td['image_tag']}\n"
         f"RunningCount: {style.GREEN}{response["services"][0]["runningCount"]}{style.RESET}\n"
         f"DesiredCount: {response["services"][0]["desiredCount"]}\n"
         "#######################################\n")
@@ -219,7 +232,7 @@ def restart_option():
                 else:
                         continue
 
-def prep_env():
+def prep_env(cluster_td):
         global list_services
         while True:
                 print("1. latest \n2. stage\n3. load\n4. prod")
@@ -267,10 +280,6 @@ def update_task_definition():
 
         print(f'Current Task Definition: {style.UNDERLINE}{cluster_td['family']}:{cluster_td['revision']}{style.RESET}')
         task_definition = input("Task definition version: ")
-        # print('Task definition: revision')
-        # list_of_td = response['taskDefinitionArns']
-        # for i in range(5):
-        #         print(list_of_td[i].split("/")[1])
 
         enter = input("Press ENTER to continue...")
         if enter != '':
@@ -289,17 +298,46 @@ def update_task_definition():
 
 def prep():
         try:
-                prep_env()
-                describe_service()
+                prep_env(cluster_td)
+                describe_service(cluster_td)
                 list_task()
         except ValueError:
                 print("Wrong input. Exiting..")
                 sys.exit()
 
+def describe_task_definition(ecs_client, task_definition):
+    response = ecs_client.describe_task_definition(taskDefinition = task_definition)
+    return response['taskDefinition']
+
+
+def update_td_image_tag(cluster_td, client, update_td):
+        new_image_tag = input('New Image Tag: ') ## must be user input
+        old_image_tag = cluster_td['image_tag'] # currently existing in ecs-action script as revision
+
+        repository_name = update_td.extract_repository_name(cluster_td['arn'])
+
+        if repository_name:
+                try:
+                        if not account == 'personal':
+                                ecr_client.describe_repositories(repositoryNames = [repository_name])
+                        update_td.validate_image_tag_format(old_image_tag,new_image_tag,cluster_td['arn'], ecr_client)
+
+                        # Update all image tag in the task definition
+                        updated_task_definition = update_td.update_strings(cluster_td['task_definition'], old_image_tag, new_image_tag)
+
+                        # Register a new task definition with the updated image tag
+                        new_task_definition_arn = update_td.register_new_task_definition(client, updated_task_definition)
+
+                        print(f"New task definition registered: {new_task_definition_arn}")
+
+
+                except ecr_client.exceptions.RepositoryNotFoundException:
+                        print(f"The Repository '{repository_name}' is not existing in the registry.")
+
 def start():
         global restart
         while True:
-                print("ECS Actions\n1. Service Restart\n2. Deploy Task Definition")
+                print("ECS Actions\n1. Service Restart\n2. Deploy Task Definition\n3. Update Image Tag")
                 action = input("What would you like to do? ")
                 if action == '1' or action == '2' or action == '3':
                         break
@@ -314,6 +352,9 @@ def start():
                         sys.exit()
         if action == "2":
                 restart = "n"
+        
+        if action == "3":
+                restart = "n"
 
 
         else:
@@ -323,11 +364,12 @@ def start():
                 restart_option()
                 print(f"\nService Restart...{style.GREEN}OK{style.RESET}")
                 return
-        if restart == "n":
+        if restart == "n" and action == "2":
                 update_option()
                 print(f"\nDeployment...{style.GREEN}COMPLETED{style.RESET}")
                 return
-
+        if restart == "n" and action == "3":
+                update_td_image_tag(cluster_td, client, update_td)
 
 
 
@@ -337,8 +379,8 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
                 sys.exit()
 
-        except botocore.exceptions.ClientError:
-                print('The security token included in the request is expired')
+        # except botocore.exceptions.ClientError:
+        #         print('The security token included in the request is expired')
 
 #### 
 # Rolling restart working - passed test with correct input only
@@ -361,15 +403,17 @@ if __name__ == "__main__":
         # add input argument for user
 
 # Update TD - done
-# Update Image
-        # Update image version and change it
-        # Capture the new TD
+# Update Image Tag
+        # Update image version and change it - done
+        # Capture the new TD - done
+                # highlight the TD revision number
 # FEATURES
-        # search and replace image tags -deadline TBD
-                # to add cpu and mem update
-        # add: reduce no. of task
-        # create:
-                # dynamic counter using kwargs depending on number of task - not used
+        # search and replace image tags - Done
+                # to add cpu and mem update - ready
+        # OPTIONAL
+                # add: reduce no. of task
+                # create:
+                        # dynamic counter using kwargs depending on number of task - not used
         # usage info
         # option to continue and deploy after search and replace
         # capture - there is current/ongoing deployment - running count,desired count and status message - or get last deployment = completed

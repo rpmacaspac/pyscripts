@@ -1,9 +1,5 @@
 import boto3
 import sys
-import time
-import datetime
-
-
 
 session = boto3.Session(profile_name='personal')
 client = session.client('ecs')
@@ -17,7 +13,6 @@ prev_event_id = 0
 status = ""
 status_msg = "has reached a steady state."
 
-
 def clear_cache():
     global events, cur_event_id, stable_event_id, desired_count, running_count, event_current, prev_event_id, status
     events = None
@@ -28,12 +23,6 @@ def clear_cache():
     event_current = None
     prev_event_id = None
     status = None
-
-# def clear_event_cache():
-#     global events, desired_count, running_count
-#     events = None
-
-
 
 def collect_event(cur_cluster, cur_service):
     global events, desired_count, running_count
@@ -98,10 +87,7 @@ def get_log(cur_cluster, cur_service):
 
         #Ending with steady state logging
         if status == status_msg and cur_event_id != stable_event_id and desired_count == running_count:
-
-
             break
-
 
 if __name__ == "__main__":
     session = boto3.Session(profile_name='personal')
@@ -113,7 +99,6 @@ if __name__ == "__main__":
         get_log(cur_cluster, cur_service)
     except KeyboardInterrupt:
         sys.exit()
-
 
 ### For improvement
             # Capture simultaneous logging - done
