@@ -45,23 +45,26 @@ def register_new_task_definition(ecs_client, task_definition):
         family = task_definition['family'],
         containerDefinitions=task_definition['containerDefinitions'],
         volumes = task_definition.get('volumes'),
-        cpu = task_definition.get('cpu'),
-        memory = task_definition.get('memory')
+        # commented cpu and mem to fix error when updating image tag of ma-portal-latest
+        # cpu = task_definition.get('cpu'),
+        # memory = task_definition.get('memory')
     )
     new_task_definition_arn = response['taskDefinition']['taskDefinitionArn']
     return new_task_definition_arn
 
 
-def extract_repository_name(task_definition_arn):
-    arn_pattern = r'arn:aws:ecs:[^:]+:[^:]+:task-definition/([^:]+):'
+def extract_repository_name(image_arn):
+    # bug : reference of task definition arn
+        # fix: get the pattern from Container Definition Image key Object
+    arn_pattern = r'[\d]{9}+amazon.com([^/]+):[^:]+'
 
-    match = re.match(arn_pattern, task_definition_arn)
+    match = re.match(arn_pattern, image_arn)
 
     if match:
         repository_name = match.group(1)
         return repository_name
     else:
-        print(f"Error: Unable to extract repository name from task definition ARN '{task_definition_arn}'.")
+        print(f"Error: Unable to extract repository name from task definition ARN '{image_arn}'.")
         return None
 
 def validate_image_tag_format(old_image_tag, new_image_tag):
@@ -75,7 +78,7 @@ def validate_image_tag_format(old_image_tag, new_image_tag):
         sys.exit(1)
 
 if __name__ == "__main__":
-    account = 'default'
+    account = 'personal'
     session = boto3.Session(profile_name=account)
     client = session.client('ecs')
     ecr_client = boto3.client('ecr')
@@ -88,7 +91,7 @@ if __name__ == "__main__":
     task_definition_arn = task_definition['taskDefinitionArn']
     
     # Validate image tag if existing in container registry
-    validate_image_tag_format(old_image_tag,new_image_tag,task_definition_arn,)
+    validate_image_tag_format(old_image_tag,new_image_tag)
     
     # Check if old image tag exists in the task definition - Manual Input
     if not old_image_tag_exists(task_definition, old_image_tag):

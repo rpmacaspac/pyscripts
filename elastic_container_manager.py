@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'personal'
+account = 'default'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 ecr_client = session.client('ecr')
@@ -47,6 +47,7 @@ cluster_td = {
         'family': "",
         'revision': "",
         'image_tag': "",
+        'image_arn': "",
         'task_definition' : ""
 }
 
@@ -114,9 +115,6 @@ def describe_service(cluster_td):
                 cluster_fin['cur_service']
                 ]
         )
-
-
-
         cluster_fin['cur_running_count'] = response["services"][0]["runningCount"]
         cluster_fin['cur_desired_count'] = response["services"][0]["desiredCount"]
         cluster_td['family'] = response["services"][0]["taskDefinition"].split("/")[1].split(":")[0]
@@ -127,6 +125,7 @@ def describe_service(cluster_td):
         task_definition = cluster_td['task_definition']
         container_definition = task_definition['containerDefinitions']
         cluster_td['image_tag'] = container_definition[0]['image'].split(':')[1]
+        cluster_td['image_arn'] = container_definition[0]['image']
 
         current = (f"\n#######################################\n"
         f"ServiceName: {style.BOLD}{response["services"][0]["serviceName"]}{style.RESET}\n"
@@ -184,8 +183,6 @@ def validate_rolling():
                 if int(cluster_fin["cur_running_count"]) != 0 and int(cur_rolling_restart) == 1:
                         return cur_rolling_restart
 
-
-
 def restart_option():
         while True:
                 if cluster_fin['cur_running_count'] == 0:
@@ -207,8 +204,7 @@ def restart_option():
                                                 print(f"\n\nRestarting with rolling update {style.YELLOW}{cur_rolling_restart}{style.RESET}")
                                                 rolling_restart()
                                                 return
-
-
+                                        
                                 if ans2 == "n":
                                         enter = input("Press ENTER to continue...")
                                         if enter == '':
@@ -241,7 +237,6 @@ def prep_env(cluster_td):
                         break
         get_cluster_env(env)
 
-
         while True:
                 for i in range(len(filtered_cluster)):
                         print(f"{i+1}. {filtered_cluster[i].split("/")[1]}")
@@ -254,7 +249,6 @@ def prep_env(cluster_td):
 
         get_cluster_service(int(cluster))
 
-
         while True:
                 
                 for i in range(len(list_services)):
@@ -262,19 +256,20 @@ def prep_env(cluster_td):
                 service = input("Which service: ")
                 if int(service) <= len(list_services):
                         break
-
                 
         get_service(int(service))
 
 def update_option():
 
-
         print('Update Service Task Definition\n')
-        try:
-                update_task_definition()
-        except botocore.exceptions.ClientError: # bug: except an error(didn't catch because of this except block) but still continue to update td
-                print('Invalid task definition version!\nExiting..')
-                sys.exit()
+        update_task_definition()
+
+        # For testing
+        # try:
+        #         update_task_definition()
+        # except botocore.exceptions.ClientError: # bug: except an error(didn't catch because of this except block) but still continue to update td
+        #         print('Invalid task definition version!\nExiting..')
+        #         sys.exit()
         
 def update_task_definition():
 
@@ -282,10 +277,9 @@ def update_task_definition():
         task_definition = input("Task definition version: ")
 
         enter = input("Press ENTER to continue...")
-        if enter != '':
-                sys.exit()
+        # if enter != '':
+        #         sys.exit()
         print(f"\n{dt} Updating task definition to {cluster_td['family']}:{task_definition}")
-
 
         client.update_service(
                 cluster = cluster_fin['cur_cluster'],
@@ -314,25 +308,30 @@ def update_td_image_tag(cluster_td, client, update_td):
         new_image_tag = input('New Image Tag: ') ## must be user input
         old_image_tag = cluster_td['image_tag'] # currently existing in ecs-action script as revision
 
-        repository_name = update_td.extract_repository_name(cluster_td['arn'])
 
-        if repository_name:
-                try:
-                        if not account == 'personal':
-                                ecr_client.describe_repositories(repositoryNames = [repository_name])
-                        update_td.validate_image_tag_format(old_image_tag,new_image_tag,cluster_td['arn'], ecr_client)
+        # get the image arn before initializing the ecr_client, this will allow the region to be specified
+        # repository_name = update_td.extract_repository_name(cluster_td['image_arn'])
 
-                        # Update all image tag in the task definition
-                        updated_task_definition = update_td.update_strings(cluster_td['task_definition'], old_image_tag, new_image_tag)
-
-                        # Register a new task definition with the updated image tag
-                        new_task_definition_arn = update_td.register_new_task_definition(client, updated_task_definition)
-
-                        print(f"New task definition registered: {new_task_definition_arn}")
+        # if repository_name:
+        try:
+                # if not account == 'personal':
+                #         ecr_client.describe_repositories(repositoryNames = [repository_name])
 
 
-                except ecr_client.exceptions.RepositoryNotFoundException:
-                        print(f"The Repository '{repository_name}' is not existing in the registry.")
+                update_td.validate_image_tag_format(old_image_tag,new_image_tag)
+
+                # Update all image tag in the task definition
+                updated_task_definition = update_td.update_strings(cluster_td['task_definition'], old_image_tag, new_image_tag)
+
+                # Register a new task definition with the updated image tag
+                new_task_definition_arn = update_td.register_new_task_definition(client, updated_task_definition)
+
+                print(f"New task definition registered: {new_task_definition_arn}")
+
+
+        except ecr_client.exceptions.RepositoryNotFoundException:
+               # print(f"The Repository '{repository_name}' is not existing in the registry.")
+                print(f"The Repository is not existing in the registry.")
 
 def start():
         global restart
@@ -342,7 +341,6 @@ def start():
                 if action == '1' or action == '2' or action == '3':
                         break
 
-               
         prep()
 
         if action == "1":
@@ -355,7 +353,6 @@ def start():
         
         if action == "3":
                 restart = "n"
-
 
         else:
                 exit
@@ -370,8 +367,6 @@ def start():
                 return
         if restart == "n" and action == "3":
                 update_td_image_tag(cluster_td, client, update_td)
-
-
 
 if __name__ == "__main__":
         try:
