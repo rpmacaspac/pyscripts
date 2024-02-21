@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'default'
+account = 'personal'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 ecr_client = session.client('ecr')
@@ -272,23 +272,27 @@ def update_option():
         #         sys.exit()
         
 def update_task_definition():
+    print(f'Current Task Definition: {style.UNDERLINE}{cluster_td["family"]}:{cluster_td["revision"]}{style.RESET}')
+    task_definition = input("Task definition version: ")
 
-        print(f'Current Task Definition: {style.UNDERLINE}{cluster_td['family']}:{cluster_td['revision']}{style.RESET}')
-        task_definition = input("Task definition version: ")
+    enter = input("Press ENTER to continue...")
+    if enter != '':
+        sys.exit()
 
-        enter = input("Press ENTER to continue...")
-        # if enter != '':
-        #         sys.exit()
-        print(f"\n{dt} Updating task definition to {cluster_td['family']}:{task_definition}")
+    if cluster_fin['cur_running_count'] == 0 and cluster_fin['cur_desired_count'] == 0:
+        print("Service is not running. Update can't proceed.")
+        sys.exit()
 
-        client.update_service(
-                cluster = cluster_fin['cur_cluster'],
-                service = cluster_fin['cur_service'],
-                taskDefinition = f"{cluster_td['family']}:{task_definition}"
-        )
+    print(f"\n{dt} Updating task definition to {cluster_td['family']}:{task_definition}")
 
-        log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
-        log_collector.clear_cache()
+    client.update_service(
+        cluster=cluster_fin['cur_cluster'],
+        service=cluster_fin['cur_service'],
+        taskDefinition=f"{cluster_td['family']}:{task_definition}"
+    )
+
+    log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
+    log_collector.clear_cache()
 
 def prep():
         try:
