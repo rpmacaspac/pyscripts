@@ -51,46 +51,42 @@ cluster_td = {
         'task_definition' : ""
 }
 
+class Cluster:
+    def __init__(self, client):
+        self.client = client
+
+    def list_clusters(self):
+        try:
+            response = self.client.list_clusters()
+            return response.get("clusterArns", [])
+        except self.client.exceptions.ClientError as e:
+            print(f"Failed to list clusters: {e}")
+            return []
+
+    def get_cluster_services(self, cluster):
+        try:
+            response = self.client.list_services(cluster=cluster)
+            return response.get("serviceArns", [])
+        except self.client.exceptions.ClientError as e:
+            print(f"Failed to get cluster services: {e}")
+            return []
+
 
 def get_cluster_env(env):
-        response = client.list_clusters()
-        clusters = response["clusterArns"]
+    clusters = Cluster(client).list_clusters()
+    env_filters = {
+        "1": "latest$",
+        "2": "stage$",
+        "3": "load$",
+        "4": "prod$"
+    }
 
-        # get env
-        for i in range(len(clusters)):
-                # cluster = clusters[i].split("/")[1]
-                cluster = clusters[i]
-                
-                if env == "1":
-                        cluster_fin['cur_env'] = "latest"
-                        filter = re.compile(r'latest$')
-                        filter.search(cluster)
-                        if (filter.search(cluster)):
-                                filtered_cluster.append(cluster)
+    filter_pattern = re.compile(env_filters.get(env, ""))
 
-                elif env == "2":
-                        cluster_fin['cur_env'] = "stage"
-                        filter = re.compile(r'stage$')
-                        filter.search(cluster)
-                        if (filter.search(cluster)):
-                                filtered_cluster.append(cluster)
-
-                elif env == "3":
-                        cluster_fin['cur_env'] = "load"
-                        filter = re.compile(r'load$')
-                        filter.search(cluster)
-                        if (filter.search(cluster)):
-                                filtered_cluster.append(cluster)
-
-                elif env == "4":
-                        cluster_fin['cur_env'] = "prod"
-                        filter = re.compile(r'prod$')
-                        filter.search(cluster)
-                        if (filter.search(cluster)):
-                                filtered_cluster.append(cluster)
-                     
-
-
+    for cluster in clusters:
+        match = filter_pattern.search(cluster)
+        if match:
+            filtered_cluster.append(cluster)
 
 def get_cluster_service(cluster):
 
