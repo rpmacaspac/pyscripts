@@ -100,6 +100,10 @@ def update_credentials():
         log_text.insert(tk.END, f"New task definition registered: {new_task_definition_arn}\n")
         log_text.config(state=tk.DISABLED)
 
+        # Dynamically adjust window height based on content
+        window.update_idletasks()
+        window.geometry(f"900x{window.winfo_reqheight()}")
+
         messagebox.showinfo("Success", f"New task definition registered: {new_task_definition_arn}")
     except KeyboardInterrupt:
         messagebox.showinfo("Info", "Exiting...")
@@ -137,16 +141,37 @@ def search_task_definition():
         old_credentials_text_height = min(10, old_credentials_text.get("1.0", "end-1c").count("\n") + 2)
         old_credentials_text.config(height=old_credentials_text_height)
 
+        # Dynamically adjust window height based on content
+        window.update_idletasks()
+        window.geometry(f"900x{window.winfo_reqheight()}")
+
     except Exception as e:
         log_text.config(state=tk.NORMAL)
         log_text.insert(tk.END, f"Error: {str(e)}\n")
         log_text.config(state=tk.DISABLED)
         messagebox.showerror("Error", str(e))
 
+def clear_fields():
+    task_definition_entry.delete(0, tk.END)
+    new_smtp_user_entry.delete(0, tk.END)
+    new_smtp_pass_entry.delete(0, tk.END)
+    old_credentials_text.config(state=tk.NORMAL)
+    old_credentials_text.delete(1.0, tk.END)
+    old_credentials_text.config(state=tk.DISABLED)
+    old_credentials_text.config(height=2)
+    new_task_definition_entry.delete(0, tk.END)
+    log_text.config(state=tk.NORMAL)
+    log_text.delete(1.0, tk.END)
+    log_text.config(state=tk.DISABLED)
+    # Reset window size
+    window.geometry("900x300")
+
+
 # Create Tkinter window
 window = tk.Tk()
 window.title("SMTP Credential Updater")
-window.geometry("900x400")  # Fixed size window
+window.geometry("900x300")  # Fixed size window
+
 
 # Account Name entry
 tk.Label(window, text="Account profile:", font=("Arial", 8, "italic")).grid(row=0, column=0, sticky="w")
@@ -173,11 +198,11 @@ button_frame = tk.Frame(window)
 button_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(10, 0))
 
 # Search button for Task Definition ARN
-search_button = tk.Button(button_frame, text="Search", command=search_task_definition)
+search_button = tk.Button(button_frame, text="Search", command=search_task_definition, width=10)
 search_button.pack(side="left")
 
 # Button to trigger update
-update_button = tk.Button(button_frame, text="Update", command=update_credentials)
+update_button = tk.Button(button_frame, text="Update", command=update_credentials, width=10)
 update_button.pack(side="left")
 
 # Old SMTP Credentials display
@@ -196,6 +221,10 @@ tk.Label(window, text="Logs:", anchor="w").grid(row=7, column=0, sticky="w")
 log_text = tk.Text(window, height=4, width=50, wrap=tk.WORD)
 log_text.grid(row=8, column=0, columnspan=2, sticky="ew")
 log_text.config(state=tk.DISABLED)
+
+# Clear button
+clear_button = tk.Button(window, text="Clear", command=clear_fields, width=10)
+clear_button.grid(row=9, column=0, columnspan=2, pady=(10, 0))
 
 # Allow column to expand
 window.columnconfigure(1, weight=1)
