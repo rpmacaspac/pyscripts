@@ -20,7 +20,7 @@ class style():
   BOLD = '\033[1m'
 
 
-account = 'personal'
+account = 'default'
 session = boto3.Session(profile_name=account)
 client = session.client('ecs')
 ecr_client = session.client('ecr')
@@ -310,28 +310,28 @@ def update_td_image_tag(cluster_td, client, update_td):
 
 
         # get the image arn before initializing the ecr_client, this will allow the region to be specified
-        # repository_name = update_td.extract_repository_name(cluster_td['image_arn'])
+        repository_name = update_td.extract_repository_name(cluster_td['image_arn'])
 
-        # if repository_name:
-        try:
-                # if not account == 'personal':
-                #         ecr_client.describe_repositories(repositoryNames = [repository_name])
-
-
-                update_td.validate_image_tag_format(old_image_tag,new_image_tag)
-
-                # Update all image tag in the task definition
-                updated_task_definition = update_td.update_strings(cluster_td['task_definition'], old_image_tag, new_image_tag)
-
-                # Register a new task definition with the updated image tag
-                new_task_definition_arn = update_td.register_new_task_definition(client, updated_task_definition)
-
-                print(f"New task definition registered: {new_task_definition_arn}")
+        if repository_name:
+                try:
+                        if not account == 'personal':
+                                ecr_client.describe_repositories(repositoryNames = [repository_name])
 
 
-        except ecr_client.exceptions.RepositoryNotFoundException:
-               # print(f"The Repository '{repository_name}' is not existing in the registry.")
-                print(f"The Repository is not existing in the registry.")
+                        update_td.validate_image_tag_format(old_image_tag,new_image_tag)
+
+                        # Update all image tag in the task definition
+                        updated_task_definition = update_td.update_strings(cluster_td['task_definition'], old_image_tag, new_image_tag)
+
+                        # Register a new task definition with the updated image tag
+                        new_task_definition_arn = update_td.register_new_task_definition(client, updated_task_definition)
+
+                        print(f"New task definition registered: {new_task_definition_arn}")
+
+
+                except ecr_client.exceptions.RepositoryNotFoundException:
+                        # print(f"The Repository '{repository_name}' is not existing in the registry.")
+                        print(f"The Repository is not existing in the registry.")
 
 def start():
         global restart

@@ -45,7 +45,7 @@ def register_new_task_definition(ecs_client, task_definition):
         family = task_definition['family'],
         containerDefinitions=task_definition['containerDefinitions'],
         volumes = task_definition.get('volumes'),
-        memory = task_definition.get('memory'), # Appended for personal account - might not work with other TD
+        # memory = task_definition.get('memory'), # Appended for personal account - might not work with other TD
     )
     new_task_definition_arn = response['taskDefinition']['taskDefinitionArn']
     return new_task_definition_arn
@@ -169,7 +169,7 @@ def clear_fields():
 
 # Create Tkinter window
 window = tk.Tk()
-window.title("SMTP Credential Updater")
+window.title("SMTP Credentials Updater")
 window.geometry("900x300")  # Fixed size window
 
 

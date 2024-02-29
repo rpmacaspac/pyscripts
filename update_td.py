@@ -56,12 +56,16 @@ def register_new_task_definition(ecs_client, task_definition):
 def extract_repository_name(image_arn):
     # bug : reference of task definition arn
         # fix: get the pattern from Container Definition Image key Object
-    arn_pattern = r'[\d]{9}+amazon.com([^/]+):[^:]+'
+    arn_pattern = r'/([\d]{12}.*)\/([^:]+):(.*)'
+    # image URI
+        # group 1: look for aws account of ecr
+        # group 2: look for repository name
+        # group 3: look for image tag 
 
     match = re.match(arn_pattern, image_arn)
 
     if match:
-        repository_name = match.group(1)
+        repository_name = match.group(2)
         return repository_name
     else:
         print(f"Error: Unable to extract repository name from task definition ARN '{image_arn}'.")
