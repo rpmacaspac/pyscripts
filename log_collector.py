@@ -1,8 +1,8 @@
 import boto3
 import sys
 
-session = boto3.Session(profile_name='personal')
-client = session.client('ecs')
+# session = boto3.Session(profile_name='personal')
+# client = session.client('ecs')
 events = ""
 cur_event_id = ""
 stable_event_id = ""
@@ -12,6 +12,11 @@ event_current = ""
 prev_event_id = 0
 status = ""
 status_msg = "has reached a steady state."
+
+def get_account(account):
+    session = boto3.Session(profile_name=account)
+    client = session.client('ecs')
+    return client
 
 def clear_cache():
     global events, cur_event_id, stable_event_id, desired_count, running_count, event_current, prev_event_id, status
@@ -24,8 +29,11 @@ def clear_cache():
     prev_event_id = None
     status = None
 
-def collect_event(cur_cluster, cur_service):
+def collect_event(cur_cluster, cur_service, account):
     global events, desired_count, running_count
+
+    client = get_account(account)
+
     response = client.describe_services(
         cluster=cur_cluster,
         services=[
@@ -46,9 +54,9 @@ def get_current_event():
         return cur_event_id, status
 
 
-def get_log(cur_cluster, cur_service):
+def get_log(cur_cluster, cur_service, account):
     global status_msg, stable_event_id
-    collect_event(cur_cluster, cur_service)
+    collect_event(cur_cluster, cur_service, account)
     initial_event_id, initial_status = get_current_event()
 
 
@@ -59,7 +67,7 @@ def get_log(cur_cluster, cur_service):
         global cur_event_id, prev_event_id, events, cur_event
         
 
-        collect_event(cur_cluster, cur_service)
+        collect_event(cur_cluster, cur_service, account)
         cur_event_id, status = get_current_event()
 
         if "completed" in str(status_msg):

@@ -155,7 +155,7 @@ def stop_task(task):
         print(f"{dt} Stopping {task}")
 
 def capture_log():
-        log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
+        log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'], account)
         log_collector.clear_cache()
 
 def rolling_restart():
@@ -287,7 +287,7 @@ def update_task_definition():
         taskDefinition=f"{cluster_td['family']}:{task_definition}"
     )
 
-    log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'])
+    log_collector.get_log(cluster_fin['cur_cluster'], cluster_fin['cur_service'], account)
     log_collector.clear_cache()
 
 def prep():

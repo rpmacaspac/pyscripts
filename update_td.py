@@ -56,7 +56,7 @@ def register_new_task_definition(ecs_client, task_definition):
 def extract_repository_name(image_arn):
     # bug : reference of task definition arn
         # fix: get the pattern from Container Definition Image key Object
-    arn_pattern = r'/([\d]{12}.*)\/([^:]+):(.*)'
+    arn_pattern = r"([\d]{12}.*)\/([^:]+):(.*)"
     # image URI
         # group 1: look for aws account of ecr
         # group 2: look for repository name
@@ -68,6 +68,9 @@ def extract_repository_name(image_arn):
         repository_name = match.group(2)
         return repository_name
     else:
+        # bug on checking repository arn.
+        # Issue: Different repository name string compare to td (eg.hkdl-wmd/hkdl-commerce2-profile-ui-v2:2.3.0-318.0.0.0 )
+            # Fix: Edit input parameter for extract_repository_name function to be an arn instead of image tag
         print(f"Error: Unable to extract repository name from task definition ARN '{image_arn}'.")
         return None
 
