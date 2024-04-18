@@ -4,13 +4,12 @@ log_message() {
     echo "$(date +"%Y-%m-%d %T"): $1"
 }
 
-log_message "Script execution started."
 
 if [ $# -eq 0 ]; then
-    log_message "Usage: $0 <launch_configuration_names>"
     echo "Usage: $0 <launch_configuration_names>" >&2
     exit 1
 fi
+log_message "Script execution started."
 
 log_message "Generating an empty Launch Configuration JSON."
 # Generate an empty Launch Configuration JSON and throw an error if failed
@@ -26,7 +25,7 @@ cat "./lc_faulty.json" | jq -r '.LaunchConfigurations[].UserData' | base64 -d > 
 
 # Create cluster name based on launch configuration name and current date and throw an error if failed
 log_message "Creating launch configuration name."
-lc_name=$(jq -r '.LaunchConfigurations[].LaunchConfigurationName' "./lc_faulty.json" | awk -F'-' '{NF--; OFS="-"; print}')-$(date +"%Y%m%d").json || { log_message "Cannot parse LC name. Check the fault json file."; echo "Cannot parse LC name. Check the fault json file." >&2; exit 5; }
+lc_name=$(jq -r '.LaunchConfigurations[].LaunchConfigurationName' "./lc_faulty.json" | awk -F'-' '{NF--; OFS="-"; print}')-$(date +"%Y%m%d").json || { log_message "Cannot parse LC name. Check the fault json file."; echo "Cannot parse LC name. Check the fault jsonfile." >&2; exit 5; }
 
 # Manipulate JSON to remove UserData and filter BlockDeviceMappings, then save to file
 log_message "Manipulating JSON and saving to file."
